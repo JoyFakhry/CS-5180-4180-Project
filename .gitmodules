@@ -1,3 +1,6 @@
 [submodule "gym-2048"]
 	path = gym-2048
 	url = https://github.com/rgal/gym-2048.git
+[submodule "gym_2048"]
+	path = gym_2048
+	url = https://github.com/rgal/gym-2048.git
