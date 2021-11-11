@@ -18,3 +18,4 @@ while True:
 
 print(env.score)
 #ajshdbfkasbf
+#as;dfkhas;lkdfja;sdlkfj
