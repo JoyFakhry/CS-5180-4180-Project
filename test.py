@@ -8,16 +8,16 @@ env = Game2048Env()
 num_steps = 10_000
 
 rewards = np.ndarray(num_steps)
+env.render()
 
 for t in trange(num_steps, desc='Steps'):
     a = env.action_space.sample()
     next_state, reward, done, info = env.step(a)
-    env.render()
     rewards[t] = reward
 
     if done:
-        print(info)
         env.reset()
+env.render()
 
 print(rewards)
-np.savetxt("rewards.csv", rewards, delimiter="   ")
+np.savetxt("Data/rewards.csv", rewards, delimiter="   ")
