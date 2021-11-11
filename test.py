@@ -17,3 +17,5 @@ while True:
         break
 
 print(env.score)
+
+#as;dfkhas;lkdfja;sdlkfj
