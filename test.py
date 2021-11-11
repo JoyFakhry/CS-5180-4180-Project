@@ -2,7 +2,6 @@ import numpy as np
 
 from gym_2048.envs.game2048_env import Game2048Env
 from tqdm import trange
-import numpy
 
 env = Game2048Env()
 
@@ -21,4 +20,4 @@ for t in trange(num_steps, desc='Steps'):
         env.reset()
 
 print(rewards)
-numpy.savetxt("rewards.csv", rewards, delimiter="   ")
+np.savetxt("rewards.csv", rewards, delimiter="   ")
