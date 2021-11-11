@@ -6,7 +6,7 @@ env = Game2048Env()
 num_steps = 10_000
 
 
-while t <= num_steps:
+while True:
     a = env.action_space.sample()
     next_state, reward, done, info = env.step(a)
     env.render()
