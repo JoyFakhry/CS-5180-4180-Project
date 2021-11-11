@@ -5,6 +5,7 @@ env = Game2048Env()
 
 num_steps = 10_000
 
+## Testing merge
 
 while t <= num_steps:
     a = env.action_space.sample()
