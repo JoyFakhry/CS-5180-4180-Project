@@ -9,6 +9,7 @@ num_steps = 10_000
 
 rewards = np.ndarray(num_steps)
 env.render()
+print(env.observation_space.shape)
 
 for t in trange(num_steps, desc='Steps'):
     a = env.action_space.sample()
