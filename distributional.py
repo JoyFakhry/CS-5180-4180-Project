@@ -18,8 +18,22 @@ import matplotlib.pyplot as plt
 USE_CUDA = torch.cuda.is_available()
 Variable = lambda *args, **kwargs: autograd.Variable(*args, **kwargs).cuda() if USE_CUDA else autograd.Variable(*args, **kwargs)
 
-env_id = "CartPole-v0"
+"""ENV SET UP (start)"""
+# # Cart Pole Environment
+import env as envir
+envir.register_env()
+env_id = "FourRooms-v0"
+# env_id = "CartPole-v0"
 env = gym.make(env_id)
+# # print(env.observation_space)
+#
+# # Epsilon greedy exploration
+# epsilon_start = 1.0
+# epsilon_final = 0.01
+# epsilon_decay = 10000
+# epsilon_by_frame = lambda frame_idx: epsilon_final + (epsilon_start - epsilon_final) * \
+#                                      math.exp(-1. * frame_idx / epsilon_decay)
+"""ENV SET UP (end)"""
 
 
 class NoisyLinear(nn.Module):
@@ -191,7 +205,8 @@ def plot(frame_idx, rewards, losses):
 
 
 num_frames = 5000
-batch_size = 32
+# Change from 32 to 16
+batch_size = 16
 gamma = 0.99
 # EPISODES = 200
 
@@ -235,15 +250,18 @@ def train(current_model, target_model):
 
 
 if __name__ == '__main__':
-    TRIALS = 3
+    TRIALS = 1
     EPISODES = 200
 
     data = np.zeros((TRIALS, EPISODES))
     # rewards = np.zeros((TRIALS, EPISODES))
     step = np.zeros((TRIALS, EPISODES))
     for t in range(TRIALS):
-        current_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
-        target_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
+        # TODO change here to switch env
+        # current_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
+        # target_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
+        current_model = CategoricalDQN(2, env.action_space.n, num_atoms, Vmin, Vmax)
+        target_model = CategoricalDQN(2, env.action_space.n, num_atoms, Vmin, Vmax)
 
         if USE_CUDA:
             print('hi')
@@ -257,8 +275,8 @@ if __name__ == '__main__':
 
         rewards, losses = train(current_model, target_model)
         print(len(losses))
-        if np.mean(rewards[-10:]) > 30:
-            data[t] = rewards
+        # if np.mean(rewards[-10:]) > 30:
+        data[t] = rewards
 
     plt.figure(figsize=(16, 8))
     # plt.subplot(121)
@@ -279,8 +297,8 @@ if __name__ == '__main__':
     # plt.xlabel('Loss')
     # plt.show()
 
-    data = data[~np.all(data == 0, axis=1)]
-    print(data.shape)
+    # data = data[~np.all(data == 0, axis=1)]
+    # print(data.shape)
     avg = data.mean(axis=0)
     std = data.std(axis=0)
     length = len(avg)

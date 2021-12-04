@@ -1,7 +1,7 @@
-import math, random
-
-import gym
 import numpy as np
+import math
+import random as rand
+import gym
 
 import torch
 import torch.nn as nn
@@ -16,10 +16,8 @@ from tqdm import tqdm
 USE_CUDA = torch.cuda.is_available()
 Variable = lambda *args, **kwargs: autograd.Variable(*args, **kwargs).cuda() if USE_CUDA else autograd.Variable(*args, **kwargs)
 
-
 # Replay Buffer
 from collections import deque
-
 
 class ReplayBuffer(object):
     def __init__(self, capacity):
@@ -32,39 +30,20 @@ class ReplayBuffer(object):
         self.buffer.append((state, action, reward, next_state, done))
 
     def sample(self, batch_size):
-        state, action, reward, next_state, done = zip(*random.sample(self.buffer, batch_size))
+        state, action, reward, next_state, done = zip(*rand.sample(self.buffer, batch_size))
         return np.concatenate(state), action, reward, np.concatenate(next_state), done
 
     def __len__(self):
         return len(self.buffer)
 
-
-# Cart Pole Environment
-env_id = "CartPole-v0"
-env = gym.make(env_id)
-# from env import *
-# register_env()
-# env = gym.make('FourRooms-v0')
-# print(env.observation_space)
-
-# Epsilon greedy exploration
-epsilon_start = 1.0
-epsilon_final = 0.01
-epsilon_decay = 5000
-
-
-epsilon_by_frame = lambda frame_idx: epsilon_final + (epsilon_start - epsilon_final) * \
-                                     math.exp(-1. * frame_idx / epsilon_decay)
-
 # Deep Q Network
-
-
 class DQN(nn.Module):
     def __init__(self, num_inputs, num_actions):
         super(DQN, self).__init__()
-
         self.layers = nn.Sequential(
-            nn.Linear(env.observation_space.shape[0], 128),
+            # TODO change here to switch between env
+            nn.Linear(2, 128),
+            # nn.Linear(env.observation_space.shape[0], 128),
             nn.ReLU(),
             nn.Linear(128, 128),
             nn.ReLU(),
@@ -81,13 +60,12 @@ class DQN(nn.Module):
             q_value = self.forward(state)
             action = q_value.max(1)[1].item()
         else:
-            action = random.randrange(env.action_space.n)
+            action = np.random.choice(env.action_space.n)
         return action
 
 
 # model = DQN(env.observation_space.shape[0], env.action_space.n)
 # optimizer = optim.Adam(model.parameters())
-
 # replay_buffer = ReplayBuffer(1000)
 
 # TD Loss
@@ -117,25 +95,20 @@ def compute_td_loss(batch_size):
     return loss
 
 
-def plot(rewards, losses):
-    clear_output(True)
-    plt.figure(figsize=(16, 8))
-    plt.subplot(121)
-    plt.title('frame %s. reward: %s' % (frame_idx, np.mean(rewards[-10:])))
-    plt.plot(rewards)
-    plt.xlabel('Episode')
-    plt.xlabel('Reward')
-    plt.subplot(122)
-    plt.title('loss')
-    plt.plot(losses)
-    plt.xlabel('Episode')
-    plt.xlabel('Loss')
-    plt.show()
-
-
-steps = 10000
-batch_size = 32
-gamma = 0.99
+# def plot(rewards, losses):
+#     clear_output(True)
+#     plt.figure(figsize=(16, 8))
+#     plt.subplot(121)
+#     plt.title('frame %s. reward: %s' % (frame_idx, np.mean(rewards[-10:])))
+#     plt.plot(rewards)
+#     plt.xlabel('Episode')
+#     plt.xlabel('Reward')
+#     plt.subplot(122)
+#     plt.title('loss')
+#     plt.plot(losses)
+#     plt.xlabel('Episode')
+#     plt.xlabel('Loss')
+#     plt.show()
 
 
 def train(model):
@@ -174,6 +147,27 @@ def train(model):
 
     return all_rewards, losses, steps
 
+"""ENV SET UP (start)"""
+# Cart Pole Environment
+from env import *
+register_env()
+env_id = "FourRooms-v0"
+# env_id = "CartPole-v0"
+env = gym.make(env_id)
+# print(env.observation_space)
+
+# Epsilon greedy exploration
+epsilon_start = 1.0
+epsilon_final = 0.01
+epsilon_decay = 10000
+epsilon_by_frame = lambda frame_idx: epsilon_final + (epsilon_start - epsilon_final) * \
+                                     math.exp(-1. * frame_idx / epsilon_decay)
+"""ENV SET UP (end)"""
+
+steps = 10000
+batch_size = 121
+gamma = 0.99
+
 if __name__ == '__main__':
     TRIALS = 3
     EPISODES = 100
@@ -182,14 +176,14 @@ if __name__ == '__main__':
     # rewards = np.zeros((TRIALS, EPISODES))
     step = np.zeros((TRIALS, EPISODES))
     for t in range(TRIALS):
-        model = DQN(env.observation_space.shape[0], env.action_space.n)
+        # TODO change here to switch between env
+        model = DQN(2, env.action_space.n)
+        # model = DQN(env.observation_space.shape[0], env.action_space.n)
         optimizer = optim.Adam(model.parameters())
         replay_buffer = ReplayBuffer(1000)
         rewards, _, step[t,:] = train(model)
         data[t] = rewards
         # rewards = np.array(rewards)
-
-
     plt.figure(figsize=(16, 8))
     plt.subplot(121)
     # plt.title('frame %s. reward: %s' % (frame_idx, np.mean(rewards[-10:])))

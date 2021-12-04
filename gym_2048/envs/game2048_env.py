@@ -36,6 +36,9 @@ def stack(flat, layers=16):
 
   return layered
 
+def state_out(obs_mat):
+    return 
+
 class Game2048Env(gym.Env):
     metadata = {'render.modes': ['ansi', 'human', 'rgb_array']}
 
@@ -110,7 +113,10 @@ class Game2048Env(gym.Env):
         info['highest'] = self.highest()
 
         # Return observation (board state), reward, done and info dict
-        return stack(self.Matrix), reward, done, info
+        # MODIFY HERE TO CHANGE STATE OUTPUT WHEN CALLING STEP
+        # return stack(self.Matrix), reward, done, info
+        return np.flatten(self.Matrix), reward, done, info
+        # return self.Matrix, reward, done, info
 
     def reset(self):
         self.Matrix = np.zeros((self.h, self.w), int)
