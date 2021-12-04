@@ -143,7 +143,7 @@ def train(model):
     # all_rewards = []
     all_rewards = np.zeros(EPISODES)
     steps = np.zeros(EPISODES)
-    episode_reward = 0
+
     step = 1
     for i in tqdm(range(EPISODES)):
 

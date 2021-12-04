@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.autograd as autograd
 import torch.nn.functional as F
+from tqdm import tqdm
 
 from test import ReplayBuffer
 
@@ -101,7 +102,8 @@ class CategoricalDQN(nn.Module):
         self.noisy2.reset_noise()
 
     def act(self, state):
-        state = Variable(torch.FloatTensor(state).unsqueeze(0), volatile=True)
+        with torch.no_grad():
+            state = Variable(torch.FloatTensor(state).unsqueeze(0))
         dist = self.forward(state).data.cpu()
         dist = dist * torch.linspace(Vmin, Vmax, num_atoms)
         action = dist.sum(2).max(1)[1].numpy()[0]
@@ -143,30 +145,17 @@ num_atoms = 51
 Vmin = -10
 Vmax = 10
 
-current_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
-target_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
-
-if USE_CUDA:
-    current_model = current_model.cuda()
-    target_model = target_model.cuda()
-
-optimizer = optim.Adam(current_model.parameters())
-
-replay_buffer = ReplayBuffer(10000)
-
 
 def update_target(current_model, target_model):
     target_model.load_state_dict(current_model.state_dict())
-
-
-update_target(current_model, target_model)
 
 
 def compute_td_loss(batch_size):
     state, action, reward, next_state, done = replay_buffer.sample(batch_size)
 
     state = Variable(torch.FloatTensor(np.float32(state)))
-    next_state = Variable(torch.FloatTensor(np.float32(next_state)), volatile=True)
+    with torch.no_grad():
+        next_state = Variable(torch.FloatTensor(np.float32(next_state)))
     action = Variable(torch.LongTensor(action))
     reward = torch.FloatTensor(reward)
     done = torch.FloatTensor(np.float32(done))
@@ -204,33 +193,104 @@ def plot(frame_idx, rewards, losses):
 num_frames = 5000
 batch_size = 32
 gamma = 0.99
+# EPISODES = 200
 
-losses = []
-all_rewards = []
-episode_reward = 0
 
-state = env.reset()
-for frame_idx in range(1, num_frames + 1):
-    action = current_model.act(state)
+def train(current_model, target_model):
+    losses = []
+    all_rewards = []
 
-    next_state, reward, done, _ = env.step(action)
-    replay_buffer.push(state, action, reward, next_state, done)
-
-    state = next_state
-    episode_reward += reward
-
-    if done:
+    t = 0
+    for i in tqdm(range(EPISODES)):
         state = env.reset()
-        all_rewards.append(episode_reward)
         episode_reward = 0
 
-    if len(replay_buffer) > batch_size:
-        loss = compute_td_loss(batch_size)
-        losses.append(loss.item())
+        while True:
+            t += 1
+            action = current_model.act(state)
 
-    if frame_idx % 200 == 0:
-        plot(frame_idx, all_rewards, losses)
+            next_state, reward, done, _ = env.step(action)
+            replay_buffer.push(state, action, reward, next_state, done)
 
-    if frame_idx % 100 == 0:
+            state = next_state
+            episode_reward += reward
+
+            if done:
+                state = env.reset()
+                all_rewards.append(episode_reward)
+                episode_reward = 0
+                break
+
+            if len(replay_buffer) > batch_size:
+                loss = compute_td_loss(batch_size)
+                losses.append(loss.item())
+
+            # if frame_idx % 200 == 0:
+            #     plot(frame_idx, all_rewards, losses)
+
+            if t % 100 == 0:
+                update_target(current_model, target_model)
+
+    return all_rewards, losses
+
+
+if __name__ == '__main__':
+    TRIALS = 3
+    EPISODES = 200
+
+    data = np.zeros((TRIALS, EPISODES))
+    # rewards = np.zeros((TRIALS, EPISODES))
+    step = np.zeros((TRIALS, EPISODES))
+    for t in range(TRIALS):
+        current_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
+        target_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
+
+        if USE_CUDA:
+            print('hi')
+            current_model = current_model.cuda()
+            target_model = target_model.cuda()
+
+        optimizer = optim.Adam(current_model.parameters())
+
+        replay_buffer = ReplayBuffer(10000)
         update_target(current_model, target_model)
 
+        rewards, losses = train(current_model, target_model)
+        print(len(losses))
+        if np.mean(rewards[-10:]) > 30:
+            data[t] = rewards
+
+    plt.figure(figsize=(16, 8))
+    # plt.subplot(121)
+    # # plt.title('frame %s. reward: %s' % (frame_idx, np.mean(rewards[-10:])))
+    # std = step.std(axis=0)
+    # avg = step.mean(axis=0)
+    # length = len(std)
+    # y_err = 1.96 * std * np.sqrt(1 / length)
+    # plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
+    #
+    # plt.plot(step.mean(axis=0))
+    # plt.xlabel('Episode')
+    # plt.xlabel('Reward')
+    # plt.subplot(122)
+    # plt.title('loss')
+    # plt.plot(losses)
+    # plt.xlabel('Episode')
+    # plt.xlabel('Loss')
+    # plt.show()
+
+    data = data[~np.all(data == 0, axis=1)]
+    print(data.shape)
+    avg = data.mean(axis=0)
+    std = data.std(axis=0)
+    length = len(avg)
+    y_err = 1.96 * std * np.sqrt(1 / length)
+    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
+
+    plt.plot(avg, label='Distributional RL')
+    plt.xlabel("Episodes")
+    plt.ylabel("Rewards")
+    plt.legend()  # loc=3, fontsize='small')
+    plt.title(f'Cartpole v0 Average Rewards over {TRIALS} runs')
+
+    plt.show()
