@@ -92,7 +92,8 @@ class CategoricalDQN(nn.Module):
         x = F.relu(self.linear2(x))
         x = F.relu(self.noisy1(x))
         x = self.noisy2(x)
-        x = F.softmax(x.view(-1, self.num_atoms)).view(-1, self.num_actions, self.num_atoms)
+        x = F.softmax(x.view(-1, self.num_atoms), dim=-1).view(-1, self.num_actions, self.num_atoms)
+
         return x
 
     def reset_noise(self):
@@ -190,7 +191,7 @@ def compute_td_loss(batch_size):
 
 def plot(frame_idx, rewards, losses):
     clear_output(True)
-    plt.figure(figsize=(20,5))
+    plt.figure(figsize=(12,5))
     plt.subplot(131)
     plt.title('frame %s. reward: %s' % (frame_idx, np.mean(rewards[-10:])))
     plt.plot(rewards)
@@ -200,7 +201,7 @@ def plot(frame_idx, rewards, losses):
     plt.show()
 
 
-num_frames = 10000
+num_frames = 5000
 batch_size = 32
 gamma = 0.99
 
@@ -225,7 +226,7 @@ for frame_idx in range(1, num_frames + 1):
 
     if len(replay_buffer) > batch_size:
         loss = compute_td_loss(batch_size)
-        losses.append(loss.data[0])
+        losses.append(loss.item())
 
     if frame_idx % 200 == 0:
         plot(frame_idx, all_rewards, losses)

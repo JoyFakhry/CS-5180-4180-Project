@@ -16,8 +16,10 @@ from tqdm import tqdm
 USE_CUDA = torch.cuda.is_available()
 Variable = lambda *args, **kwargs: autograd.Variable(*args, **kwargs).cuda() if USE_CUDA else autograd.Variable(*args, **kwargs)
 
+
 # Replay Buffer
 from collections import deque
+
 
 class ReplayBuffer(object):
     def __init__(self, capacity):
@@ -172,52 +174,52 @@ def train(model):
 
     return all_rewards, losses, steps
 
+if __name__ == '__main__':
+    TRIALS = 3
+    EPISODES = 100
 
-TRIALS = 3
-EPISODES = 100
-
-data = np.zeros((TRIALS, EPISODES))
-# rewards = np.zeros((TRIALS, EPISODES))
-step = np.zeros((TRIALS, EPISODES))
-for t in range(TRIALS):
-    model = DQN(env.observation_space.shape[0], env.action_space.n)
-    optimizer = optim.Adam(model.parameters())
-    replay_buffer = ReplayBuffer(1000)
-    rewards, _, step[t,:] = train(model)
-    data[t] = rewards
-    # rewards = np.array(rewards)
+    data = np.zeros((TRIALS, EPISODES))
+    # rewards = np.zeros((TRIALS, EPISODES))
+    step = np.zeros((TRIALS, EPISODES))
+    for t in range(TRIALS):
+        model = DQN(env.observation_space.shape[0], env.action_space.n)
+        optimizer = optim.Adam(model.parameters())
+        replay_buffer = ReplayBuffer(1000)
+        rewards, _, step[t,:] = train(model)
+        data[t] = rewards
+        # rewards = np.array(rewards)
 
 
-plt.figure(figsize=(16, 8))
-plt.subplot(121)
-# plt.title('frame %s. reward: %s' % (frame_idx, np.mean(rewards[-10:])))
-std = step.std(axis=0)
-avg = step.mean(axis=0)
-length = len(std)
-y_err = 1.96 * std * np.sqrt(1 / length)
-plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
+    plt.figure(figsize=(16, 8))
+    plt.subplot(121)
+    # plt.title('frame %s. reward: %s' % (frame_idx, np.mean(rewards[-10:])))
+    std = step.std(axis=0)
+    avg = step.mean(axis=0)
+    length = len(std)
+    y_err = 1.96 * std * np.sqrt(1 / length)
+    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
 
-plt.plot(step.mean(axis=0))
-# plt.xlabel('Episode')
-# plt.xlabel('Reward')
-plt.subplot(122)
-# plt.title('loss')
-# plt.plot(losses)
-# plt.xlabel('Episode')
-# plt.xlabel('Loss')
-# plt.show()
+    plt.plot(step.mean(axis=0))
+    # plt.xlabel('Episode')
+    # plt.xlabel('Reward')
+    plt.subplot(122)
+    # plt.title('loss')
+    # plt.plot(losses)
+    # plt.xlabel('Episode')
+    # plt.xlabel('Loss')
+    # plt.show()
 
-avg = data.mean(axis=0)
-std = data.std(axis=0)
-length = len(avg)
-y_err = 1.96 * std * np.sqrt(1 / length)
-plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
+    avg = data.mean(axis=0)
+    std = data.std(axis=0)
+    length = len(avg)
+    y_err = 1.96 * std * np.sqrt(1 / length)
+    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
 
-plt.plot(avg, label='DQN')
-plt.xlabel("Episodes")
-plt.ylabel("Rewards")
-plt.legend() #loc=3, fontsize='small')
-plt.title(f'Cartpole v0 Average Rewards over {TRIALS} runs')
+    plt.plot(avg, label='DQN')
+    plt.xlabel("Episodes")
+    plt.ylabel("Rewards")
+    plt.legend() #loc=3, fontsize='small')
+    plt.title(f'Cartpole v0 Average Rewards over {TRIALS} runs')
 
-plt.show()
+    plt.show()
 
