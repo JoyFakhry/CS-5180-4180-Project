@@ -1,5 +1,7 @@
 from enum import IntEnum
 from typing import Tuple, Optional, List
+
+import numpy as np
 from gym import Env, spaces, ObservationWrapper
 from gym.utils import seeding
 from gym.envs.registration import register
@@ -74,11 +76,27 @@ class FourRoomsEnv(Env):
         self.goal_pos = goal_pos
         self.agent_pos = None
 
+        self.space = np.zeros((self.rows, self.cols))
+        for wall in self.walls:
+            # print(wall)
+            self.space[wall] = 1
+        self.space[self.goal_pos] = 3
+
         self.action_space = spaces.Discrete(len(Action))
         self.observation_space = spaces.Tuple(
             (spaces.Discrete(self.rows), spaces.Discrete(self.cols))
         )
         # self.observation_space = spaces.Discrete(self.cols * self.rows)
+
+    def render(self, mode='rgb_array'):
+        # valid space = 0
+        # wall = 1
+        # agent = 2
+        # goal = 3
+
+        self.space[self.agent_pos] = 2
+
+        return self.space
 
     def seed(self, seed: Optional[int] = None) -> List[int]:
         """Fix seed of environment
@@ -101,6 +119,10 @@ class FourRoomsEnv(Env):
             observation (Tuple[int,int]): returns the initial observation
         """
         self.agent_pos = self.start_pos
+        self.space = np.zeros((self.rows, self.cols))
+        for wall in self.walls:
+            self.space[wall] = 1
+        self.space[self.goal_pos] = 3
 
         return self.agent_pos
 
@@ -179,7 +201,7 @@ class FourRoomsEnv(Env):
         else:
             self.agent_pos = next_pos
 
-        return self.agent_pos, reward, done, {}
+        return self.render(), reward, done, {}
 
     def noise(self):
         r = random.rand()

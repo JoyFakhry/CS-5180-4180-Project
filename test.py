@@ -42,12 +42,13 @@ class DQN(nn.Module):
         super(DQN, self).__init__()
         self.layers = nn.Sequential(
             # TODO change here to switch between env
-            nn.Linear(2, 128),
+            nn.Flatten(),
+            nn.Linear(num_inputs, 128),
             # nn.Linear(env.observation_space.shape[0], 128),
             nn.ReLU(),
             nn.Linear(128, 128),
             nn.ReLU(),
-            nn.Linear(128, env.action_space.n)
+            nn.Linear(128, num_actions)
         )
 
     def forward(self, x):
@@ -115,17 +116,23 @@ def train(model):
     losses = []
     # all_rewards = []
     all_rewards = np.zeros(EPISODES)
-    steps = np.zeros(EPISODES)
 
+    output = []
     step = 1
     for i in tqdm(range(EPISODES)):
 
-        state = env.reset()
+        if env_id == 'FourRooms-v0':
+            env.reset()
+            state = env.render()
+        else:
+            state = env.reset()
         episode_reward = 0
+        num_steps = 0
         while True:
+            num_steps += 1
             epsilon = epsilon_by_frame(step)
             action = model.act(state, epsilon)
-
+            # print(state)
             next_state, reward, done, _ = env.step(action)
             replay_buffer.push(state, action, reward, next_state, done)
 
@@ -136,16 +143,15 @@ def train(model):
                 # state = env.reset()
                 # all_rewards.append(episode_reward)
                 all_rewards[i] = episode_reward
-                steps[i] = step
+                output.append(num_steps)
                 break
 
             if len(replay_buffer) > batch_size:
                 loss = compute_td_loss(batch_size)
                 losses.append(loss.item())
-
             step += 1
 
-    return all_rewards, losses, steps
+    return all_rewards, losses, output
 
 """ENV SET UP (start)"""
 # Cart Pole Environment
@@ -154,7 +160,10 @@ register_env()
 env_id = "FourRooms-v0"
 # env_id = "CartPole-v0"
 env = gym.make(env_id)
-# print(env.observation_space)
+env.reset()
+print(env.render())
+print(env.observation_space.shape)
+
 
 # Epsilon greedy exploration
 epsilon_start = 1.0
@@ -165,38 +174,40 @@ epsilon_by_frame = lambda frame_idx: epsilon_final + (epsilon_start - epsilon_fi
 """ENV SET UP (end)"""
 
 steps = 10000
-batch_size = 121
+batch_size = 32
 gamma = 0.99
 
 if __name__ == '__main__':
-    TRIALS = 3
-    EPISODES = 100
+    TRIALS = 20
+    EPISODES = 200
 
     data = np.zeros((TRIALS, EPISODES))
     # rewards = np.zeros((TRIALS, EPISODES))
     step = np.zeros((TRIALS, EPISODES))
     for t in range(TRIALS):
         # TODO change here to switch between env
-        model = DQN(2, env.action_space.n)
+        shape = env.render().flatten().shape
+
+        model = DQN(shape[0], env.action_space.n)
         # model = DQN(env.observation_space.shape[0], env.action_space.n)
         optimizer = optim.Adam(model.parameters())
         replay_buffer = ReplayBuffer(1000)
-        rewards, _, step[t,:] = train(model)
-        data[t] = rewards
+        rewards, _, output = train(model)
+        data[t] = output
         # rewards = np.array(rewards)
     plt.figure(figsize=(16, 8))
-    plt.subplot(121)
-    # plt.title('frame %s. reward: %s' % (frame_idx, np.mean(rewards[-10:])))
-    std = step.std(axis=0)
-    avg = step.mean(axis=0)
-    length = len(std)
-    y_err = 1.96 * std * np.sqrt(1 / length)
-    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
-
-    plt.plot(step.mean(axis=0))
-    # plt.xlabel('Episode')
-    # plt.xlabel('Reward')
-    plt.subplot(122)
+    # plt.subplot(121)
+    # # plt.title('frame %s. reward: %s' % (frame_idx, np.mean(rewards[-10:])))
+    # std = step.std(axis=0)
+    # avg = step.mean(axis=0)
+    # length = len(std)
+    # y_err = 1.96 * std * np.sqrt(1 / length)
+    # plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
+    #
+    # plt.plot(step.mean(axis=0))
+    # # plt.xlabel('Episode')
+    # # plt.xlabel('Reward')
+    # plt.subplot(122)
     # plt.title('loss')
     # plt.plot(losses)
     # plt.xlabel('Episode')
@@ -211,9 +222,42 @@ if __name__ == '__main__':
 
     plt.plot(avg, label='DQN')
     plt.xlabel("Episodes")
-    plt.ylabel("Rewards")
+    plt.ylabel("Number of steps per episode")
     plt.legend() #loc=3, fontsize='small')
-    plt.title(f'Cartpole v0 Average Rewards over {TRIALS} runs')
+    plt.title(f'{env_id} performance over {TRIALS} runs')
+    plt.savefig(f'Pics/{env_id} performance over {TRIALS} runs.png')
+
+    plt.show()
+
+    env_id = "CartPole-v0"
+    env = gym.make(env_id)
+
+    data = np.zeros((TRIALS, EPISODES))
+    step = np.zeros((TRIALS, EPISODES))
+    for t in range(TRIALS):
+        # TODO change here to switch between env
+        # shape = env.render().flatten().shape
+
+        # model = DQN(shape[0], env.action_space.n)
+        model = DQN(env.observation_space.shape[0], env.action_space.n)
+        optimizer = optim.Adam(model.parameters())
+        replay_buffer = ReplayBuffer(1000)
+        rewards, _, output = train(model)
+        data[t] = output
+
+    plt.figure(figsize=(16, 8))
+    avg = data.mean(axis=0)
+    std = data.std(axis=0)
+    length = len(avg)
+    y_err = 1.96 * std * np.sqrt(1 / length)
+    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
+
+    plt.plot(avg, label='DQN')
+    plt.xlabel("Episodes")
+    plt.ylabel("Number of steps per episode")
+    plt.legend()  # loc=3, fontsize='small')
+    plt.title(f'{env_id} performance over {TRIALS} runs')
+    plt.savefig(f'Pics/{env_id} performance over {TRIALS} runs.png')
 
     plt.show()
 

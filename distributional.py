@@ -25,7 +25,7 @@ envir.register_env()
 env_id = "FourRooms-v0"
 # env_id = "CartPole-v0"
 env = gym.make(env_id)
-# # print(env.observation_space)
+print(env.observation_space)
 #
 # # Epsilon greedy exploration
 # epsilon_start = 1.0
@@ -97,16 +97,31 @@ class CategoricalDQN(nn.Module):
         self.Vmin = Vmin
         self.Vmax = Vmax
 
-        self.linear1 = nn.Linear(num_inputs, 128)
-        self.linear2 = nn.Linear(128, 128)
-        self.noisy1 = NoisyLinear(128, 512)
-        self.noisy2 = NoisyLinear(512, self.num_actions * self.num_atoms)
+        # self.flatten = nn.Flatten()
+        # self.linear1 = nn.Linear(num_inputs, 128)
+        # self.linear2 = nn.Linear(128, 128)
+        # self.noisy1 = NoisyLinear(128, 512)
+        # self.noisy2 = NoisyLinear(512, self.num_actions * self.num_atoms)
+        self.layers = nn.Sequential(
+            # TODO change here to switch between env
+            nn.Flatten(),
+            nn.Linear(num_inputs, 128),
+            # nn.Linear(env.observation_space.shape[0], 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            NoisyLinear(128, 512),
+            nn.ReLU(),
+            NoisyLinear(512, self.num_actions * self.num_atoms),
+            # F.softmax()
+        )
 
     def forward(self, x):
-        x = F.relu(self.linear1(x))
-        x = F.relu(self.linear2(x))
-        x = F.relu(self.noisy1(x))
-        x = self.noisy2(x)
+        # x = x.flatten()
+        # x = F.relu(self.linear1(x))
+        # x = F.relu(self.linear2(x))
+        # x = F.relu(self.noisy1(x))
+        # x = self.noisy2(x)
         x = F.softmax(x.view(-1, self.num_atoms), dim=-1).view(-1, self.num_actions, self.num_atoms)
 
         return x
@@ -205,8 +220,7 @@ def plot(frame_idx, rewards, losses):
 
 
 num_frames = 5000
-# Change from 32 to 16
-batch_size = 16
+batch_size = 32
 gamma = 0.99
 # EPISODES = 200
 
@@ -215,13 +229,19 @@ def train(current_model, target_model):
     losses = []
     all_rewards = []
 
-    t = 0
+    output = []
+    step = 1
     for i in tqdm(range(EPISODES)):
-        state = env.reset()
+        if env_id == 'FourRooms-v0':
+            env.reset()
+            state = env.render()
+        else:
+            state = env.reset()
         episode_reward = 0
-
+        num_steps = 0
         while True:
-            t += 1
+            num_steps += 1
+            # print(state)
             action = current_model.act(state)
 
             next_state, reward, done, _ = env.step(action)
@@ -231,9 +251,9 @@ def train(current_model, target_model):
             episode_reward += reward
 
             if done:
-                state = env.reset()
-                all_rewards.append(episode_reward)
-                episode_reward = 0
+                # state = env.reset()
+                all_rewards[i] = episode_reward
+                output.append(num_steps)
                 break
 
             if len(replay_buffer) > batch_size:
@@ -246,22 +266,22 @@ def train(current_model, target_model):
             if t % 100 == 0:
                 update_target(current_model, target_model)
 
-    return all_rewards, losses
+    return all_rewards, losses, output
 
 
 if __name__ == '__main__':
     TRIALS = 1
-    EPISODES = 200
+    EPISODES = 50
 
     data = np.zeros((TRIALS, EPISODES))
     # rewards = np.zeros((TRIALS, EPISODES))
     step = np.zeros((TRIALS, EPISODES))
     for t in range(TRIALS):
-        # TODO change here to switch env
+        shape = env.render().flatten().shape
+        current_model = CategoricalDQN(shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
+        target_model = CategoricalDQN(shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
         # current_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
         # target_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
-        current_model = CategoricalDQN(2, env.action_space.n, num_atoms, Vmin, Vmax)
-        target_model = CategoricalDQN(2, env.action_space.n, num_atoms, Vmin, Vmax)
 
         if USE_CUDA:
             print('hi')
@@ -273,8 +293,8 @@ if __name__ == '__main__':
         replay_buffer = ReplayBuffer(10000)
         update_target(current_model, target_model)
 
-        rewards, losses = train(current_model, target_model)
-        print(len(losses))
+        rewards, _, output = train(current_model, target_model)
+        # print(len(losses))
         # if np.mean(rewards[-10:]) > 30:
         data[t] = rewards
 
@@ -298,7 +318,7 @@ if __name__ == '__main__':
     # plt.show()
 
     # data = data[~np.all(data == 0, axis=1)]
-    # print(data.shape)
+    print(data.shape)
     avg = data.mean(axis=0)
     std = data.std(axis=0)
     length = len(avg)
@@ -307,8 +327,9 @@ if __name__ == '__main__':
 
     plt.plot(avg, label='Distributional RL')
     plt.xlabel("Episodes")
-    plt.ylabel("Rewards")
+    plt.ylabel("Number of steps per episode")
     plt.legend()  # loc=3, fontsize='small')
-    plt.title(f'Cartpole v0 Average Rewards over {TRIALS} runs')
+    plt.title(f'{env_id} performance over {TRIALS} runs, DRL')
+    plt.savefig(f'Pics/{env_id} performance over {TRIALS} runs, DRL.png')
 
     plt.show()
