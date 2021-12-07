@@ -183,10 +183,48 @@ class Agent:
         return output
 
 
+def rolling_average(data, *, window_size=10):
+    """Smoothen the 1-d data array using a rollin average.
+
+    Args:
+        data: 1-d numpy.array
+        window_size: size of the smoothing window
+
+    Returns:
+        smooth_data: a 1-d numpy.array with the same size as data
+    """
+    assert data.ndim == 1
+    kernel = np.ones(window_size)
+    smooth_data = np.convolve(data, kernel) / np.convolve(
+        np.ones_like(data), kernel
+    )
+    return smooth_data[: -window_size + 1]
+
+
 def main():
-    TRIALS = 5
+    TRIALS = 1
     EPISODES = 100
+
+    env_id = "CartPole-v0"
+    env = gym.make(env_id)
+
     data = np.zeros((TRIALS, EPISODES))
+    for t in range(TRIALS):
+        agent = Agent(env, EPISODES, 'env_id')
+        data[t] = agent.train(EPISODES)
+
+    plt.figure(figsize=(16, 8))
+    avg = data.mean(axis=0)
+    std = data.std(axis=0)
+    length = len(avg)
+    y_err = 1.96 * std * np.sqrt(1 / length)
+    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
+
+    plt.plot(avg, label='Original env')
+    # plt.plot(rolling_average(avg))
+    plt.xlabel("Episodes")
+    plt.ylabel("Number of steps per episode")
+    plt.title(f'Distributional RL on Original and Stochastic Environments')
 
     from typing import TypeVar
     import random
@@ -207,6 +245,7 @@ def main():
     env_id = "CartPole-v0"
     env = RandomActionWrapper(gym.make(env_id))
 
+    data = np.zeros((TRIALS, EPISODES))
     for t in range(TRIALS):
         agent = Agent(env, EPISODES, 'env_id')
         data[t] = agent.train(EPISODES)
@@ -217,12 +256,10 @@ def main():
     y_err = 1.96 * std * np.sqrt(1 / length)
     plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
 
-    plt.plot(avg, label='Distributional RL 2')
-    plt.xlabel("Episodes")
-    plt.ylabel("Number of steps per episode")
+    plt.plot(avg, label='Stochastic env')
+    # plt.plot(rolling_average(avg))
     plt.legend()  # loc=3, fontsize='small')
-    plt.title(f'{env_id} performance over {TRIALS} runs, DRL2')
-    plt.savefig(f'Pics/{env_id} performance over {TRIALS} runs, DRL2.png')
+    plt.savefig(f'Pics/Distributional RL on Original and Stochastic Environments {TRIALS} runs.png')
 
     plt.show()
 

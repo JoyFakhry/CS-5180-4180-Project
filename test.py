@@ -55,7 +55,7 @@ class DQN(nn.Module):
         return self.layers(x)
 
     def act(self, state, epsilon):
-        if random.random() > epsilon:
+        if rand.random() > epsilon:
             with torch.no_grad():
                 state = Variable(torch.FloatTensor(state).unsqueeze(0))
             q_value = self.forward(state)
@@ -178,39 +178,52 @@ steps = 10000
 batch_size = 16
 gamma = 0.99
 
+
+def rolling_average(data, *, window_size=10):
+    """Smoothen the 1-d data array using a rollin average.
+
+    Args:
+        data: 1-d numpy.array
+        window_size: size of the smoothing window
+
+    Returns:
+        smooth_data: a 1-d numpy.array with the same size as data
+    """
+    assert data.ndim == 1
+    kernel = np.ones(window_size)
+    smooth_data = np.convolve(data, kernel) / np.convolve(
+        np.ones_like(data), kernel
+    )
+    return smooth_data[: -window_size + 1]
+
+
 if __name__ == '__main__':
     TRIALS = 20
-    EPISODES = 100
+    EPISODES = 150
 
-    # data = np.zeros((TRIALS, EPISODES))
-    # # rewards = np.zeros((TRIALS, EPISODES))
-    # step = np.zeros((TRIALS, EPISODES))
-    # for t in range(TRIALS):
-    #     # TODO change here to switch between env
-    #     shape = env.render().flatten().shape
-    #
-    #     model = DQN(shape[0], env.action_space.n)
-    #     # model = DQN(env.observation_space.shape[0], env.action_space.n)
-    #     optimizer = optim.Adam(model.parameters())
-    #     replay_buffer = ReplayBuffer(10000)
-    #     rewards, _, output = train(model)
-    #     data[t] = output
-    # plt.figure(figsize=(16, 8))
-    #
-    # avg = data.mean(axis=0)
-    # std = data.std(axis=0)
-    # length = len(avg)
-    # y_err = 1.96 * std * np.sqrt(1 / length)
-    # plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
-    #
-    # plt.plot(avg, label='DQN')
-    # plt.xlabel("Episodes")
-    # plt.ylabel("Number of steps per episode")
-    # plt.legend() #loc=3, fontsize='small')
-    # plt.title(f'{env_id} performance over {TRIALS} runs')
-    # plt.savefig(f'Pics/{env_id} performance over {TRIALS} runs.png')
-    #
-    # plt.show()
+    env_id = "CartPole-v0"
+    env = gym.make(env_id)
+
+    data = np.zeros((TRIALS, EPISODES))
+    for t in range(TRIALS):
+        model = DQN(env.observation_space.shape[0], env.action_space.n)
+        optimizer = optim.Adam(model.parameters())
+        replay_buffer = ReplayBuffer(1000)
+        rewards, _, output = train(model)
+        data[t] = output
+
+    plt.figure(figsize=(16, 8))
+    avg = data.mean(axis=0)
+    std = data.std(axis=0)
+    length = len(avg)
+    y_err = 1.96 * std * np.sqrt(1 / length)
+    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2, c='royal blue')
+
+    plt.plot(avg, label='Original env', c='royal blue')
+    plt.plot(rolling_average(avg), c='dark blue')
+    plt.xlabel("Episodes")
+    plt.ylabel("Number of steps per episode")
+    plt.title(f'DQN on Original and Stochastic Environments')
 
     from typing import TypeVar
     import random
@@ -232,31 +245,23 @@ if __name__ == '__main__':
     env = RandomActionWrapper(gym.make(env_id))
 
     data = np.zeros((TRIALS, EPISODES))
-    step = np.zeros((TRIALS, EPISODES))
     for t in range(TRIALS):
-        # TODO change here to switch between env
-        # shape = env.render().flatten().shape
-
-        # model = DQN(shape[0], env.action_space.n)
         model = DQN(env.observation_space.shape[0], env.action_space.n)
         optimizer = optim.Adam(model.parameters())
         replay_buffer = ReplayBuffer(1000)
         rewards, _, output = train(model)
         data[t] = output
 
-    plt.figure(figsize=(16, 8))
     avg = data.mean(axis=0)
     std = data.std(axis=0)
     length = len(avg)
     y_err = 1.96 * std * np.sqrt(1 / length)
-    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
+    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2, c='sea green')
 
-    plt.plot(avg, label='DQN')
-    plt.xlabel("Episodes")
-    plt.ylabel("Number of steps per episode")
+    plt.plot(avg, label='Stochastic env', c='sea green')
+    plt.plot(rolling_average(avg), c='dark green')
     plt.legend()  # loc=3, fontsize='small')
-    plt.title(f'{env_id} performance over {TRIALS} runs (Stochastic Actions)')
-    plt.savefig(f'Pics/{env_id} performance over {TRIALS} runs (Stochastic Actions.png')
+    plt.savefig(f'Pics/DQN on Original and Stochastic Environments {TRIALS} runs.png')
 
     plt.show()
 

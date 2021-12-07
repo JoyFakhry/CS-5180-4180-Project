@@ -39,7 +39,7 @@ class RandomActionWrapper(gym.ActionWrapper):
             return self.env.action_space.sample()
         return action
 
-env_id = "CartPole-v0"
+env_id = "CartPole-v1"
 env = RandomActionWrapper(gym.make(env_id))
 #
 # # Epsilon greedy exploration
@@ -286,7 +286,7 @@ def train(current_model, target_model):
 
 if __name__ == '__main__':
     TRIALS = 5
-    EPISODES = 100
+    EPISODES = 150
 
     data = np.zeros((TRIALS, EPISODES))
     # rewards = np.zeros((TRIALS, EPISODES))
