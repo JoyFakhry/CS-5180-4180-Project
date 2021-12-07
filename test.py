@@ -174,7 +174,7 @@ epsilon_by_frame = lambda frame_idx: epsilon_final + (epsilon_start - epsilon_fi
 """ENV SET UP (end)"""
 
 steps = 10000
-batch_size = 32
+batch_size = 16
 gamma = 0.99
 
 if __name__ == '__main__':
@@ -229,35 +229,35 @@ if __name__ == '__main__':
 
     plt.show()
 
-    env_id = "CartPole-v0"
-    env = gym.make(env_id)
-
-    data = np.zeros((TRIALS, EPISODES))
-    step = np.zeros((TRIALS, EPISODES))
-    for t in range(TRIALS):
-        # TODO change here to switch between env
-        # shape = env.render().flatten().shape
-
-        # model = DQN(shape[0], env.action_space.n)
-        model = DQN(env.observation_space.shape[0], env.action_space.n)
-        optimizer = optim.Adam(model.parameters())
-        replay_buffer = ReplayBuffer(1000)
-        rewards, _, output = train(model)
-        data[t] = output
-
-    plt.figure(figsize=(16, 8))
-    avg = data.mean(axis=0)
-    std = data.std(axis=0)
-    length = len(avg)
-    y_err = 1.96 * std * np.sqrt(1 / length)
-    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
-
-    plt.plot(avg, label='DQN')
-    plt.xlabel("Episodes")
-    plt.ylabel("Number of steps per episode")
-    plt.legend()  # loc=3, fontsize='small')
-    plt.title(f'{env_id} performance over {TRIALS} runs')
-    plt.savefig(f'Pics/{env_id} performance over {TRIALS} runs.png')
-
-    plt.show()
+    # env_id = "CartPole-v0"
+    # env = gym.make(env_id)
+    #
+    # data = np.zeros((TRIALS, EPISODES))
+    # step = np.zeros((TRIALS, EPISODES))
+    # for t in range(TRIALS):
+    #     # TODO change here to switch between env
+    #     # shape = env.render().flatten().shape
+    #
+    #     # model = DQN(shape[0], env.action_space.n)
+    #     model = DQN(env.observation_space.shape[0], env.action_space.n)
+    #     optimizer = optim.Adam(model.parameters())
+    #     replay_buffer = ReplayBuffer(1000)
+    #     rewards, _, output = train(model)
+    #     data[t] = output
+    #
+    # plt.figure(figsize=(16, 8))
+    # avg = data.mean(axis=0)
+    # std = data.std(axis=0)
+    # length = len(avg)
+    # y_err = 1.96 * std * np.sqrt(1 / length)
+    # plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
+    #
+    # plt.plot(avg, label='DQN')
+    # plt.xlabel("Episodes")
+    # plt.ylabel("Number of steps per episode")
+    # plt.legend()  # loc=3, fontsize='small')
+    # plt.title(f'{env_id} performance over {TRIALS} runs')
+    # plt.savefig(f'Pics/{env_id} performance over {TRIALS} runs.png')
+    #
+    # plt.show()
 

@@ -97,31 +97,32 @@ class CategoricalDQN(nn.Module):
         self.Vmin = Vmin
         self.Vmax = Vmax
 
-        # self.flatten = nn.Flatten()
-        # self.linear1 = nn.Linear(num_inputs, 128)
-        # self.linear2 = nn.Linear(128, 128)
-        # self.noisy1 = NoisyLinear(128, 512)
-        # self.noisy2 = NoisyLinear(512, self.num_actions * self.num_atoms)
-        self.layers = nn.Sequential(
-            # TODO change here to switch between env
-            nn.Flatten(),
-            nn.Linear(num_inputs, 128),
-            # nn.Linear(env.observation_space.shape[0], 128),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            nn.ReLU(),
-            NoisyLinear(128, 512),
-            nn.ReLU(),
-            NoisyLinear(512, self.num_actions * self.num_atoms),
-            # F.softmax()
-        )
+        self.flatten = nn.Flatten()
+        self.linear1 = nn.Linear(num_inputs, 128)
+        self.linear2 = nn.Linear(128, 128)
+        self.noisy1 = NoisyLinear(128, 512)
+        self.noisy2 = NoisyLinear(512, self.num_actions * self.num_atoms)
+        # self.layers = nn.Sequential(
+        #     # TODO change here to switch between env
+        #     nn.Flatten(),
+        #     nn.Linear(num_inputs, 128),
+        #     # nn.Linear(env.observation_space.shape[0], 128),
+        #     nn.ReLU(),
+        #     nn.Linear(128, 128),
+        #     nn.ReLU(),
+        #     NoisyLinear(128, 512),
+        #     nn.ReLU(),
+        #     NoisyLinear(512, self.num_actions * self.num_atoms),
+        #     # F.softmax()
+        # )
 
     def forward(self, x):
-        # x = x.flatten()
-        # x = F.relu(self.linear1(x))
-        # x = F.relu(self.linear2(x))
-        # x = F.relu(self.noisy1(x))
-        # x = self.noisy2(x)
+        # print(x.flatten().shape)
+        x = x.flatten()
+        x = F.relu(self.linear1(x))
+        x = F.relu(self.linear2(x))
+        x = F.relu(self.noisy1(x))
+        x = self.noisy2(x)
         x = F.softmax(x.view(-1, self.num_atoms), dim=-1).view(-1, self.num_actions, self.num_atoms)
 
         return x
@@ -190,7 +191,6 @@ def compute_td_loss(batch_size):
     done = torch.FloatTensor(np.float32(done))
 
     proj_dist = projection_distribution(next_state, reward, done)
-
     dist = current_model(state)
     action = action.unsqueeze(1).unsqueeze(1).expand(batch_size, 1, num_atoms)
     dist = dist.gather(1, action).squeeze(1)
@@ -220,7 +220,7 @@ def plot(frame_idx, rewards, losses):
 
 
 num_frames = 5000
-batch_size = 32
+batch_size = 1
 gamma = 0.99
 # EPISODES = 200
 
@@ -252,7 +252,7 @@ def train(current_model, target_model):
 
             if done:
                 # state = env.reset()
-                all_rewards[i] = episode_reward
+                all_rewards.append(episode_reward)
                 output.append(num_steps)
                 break
 
