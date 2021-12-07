@@ -20,12 +20,27 @@ Variable = lambda *args, **kwargs: autograd.Variable(*args, **kwargs).cuda() if 
 
 """ENV SET UP (start)"""
 # # Cart Pole Environment
-import env as envir
-envir.register_env()
-env_id = "FourRooms-v0"
-# env_id = "CartPole-v0"
-env = gym.make(env_id)
-print(env.observation_space)
+# import env as envir
+# envir.register_env()
+# env_id = "FourRooms-v0"
+from typing import TypeVar
+import random
+
+Action = TypeVar('Action')
+
+class RandomActionWrapper(gym.ActionWrapper):
+    def __init__(self, env, epsilon=0.1):
+        super(RandomActionWrapper, self).__init__(env)
+        self.epsilon = epsilon
+
+    def action(self, action):
+        if random.random() < self.epsilon:
+            # print("Random!")
+            return self.env.action_space.sample()
+        return action
+
+env_id = "CartPole-v0"
+env = RandomActionWrapper(gym.make(env_id))
 #
 # # Epsilon greedy exploration
 # epsilon_start = 1.0
@@ -118,7 +133,7 @@ class CategoricalDQN(nn.Module):
 
     def forward(self, x):
         # print(x.flatten().shape)
-        x = x.flatten()
+        # x = x.flatten()
         x = F.relu(self.linear1(x))
         x = F.relu(self.linear2(x))
         x = F.relu(self.noisy1(x))
@@ -220,7 +235,7 @@ def plot(frame_idx, rewards, losses):
 
 
 num_frames = 5000
-batch_size = 1
+batch_size = 2
 gamma = 0.99
 # EPISODES = 200
 
@@ -270,18 +285,18 @@ def train(current_model, target_model):
 
 
 if __name__ == '__main__':
-    TRIALS = 1
-    EPISODES = 50
+    TRIALS = 5
+    EPISODES = 100
 
     data = np.zeros((TRIALS, EPISODES))
     # rewards = np.zeros((TRIALS, EPISODES))
     step = np.zeros((TRIALS, EPISODES))
     for t in range(TRIALS):
-        shape = env.render().flatten().shape
-        current_model = CategoricalDQN(shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
-        target_model = CategoricalDQN(shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
-        # current_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
-        # target_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
+        # shape = env.render().flatten().shape
+        # current_model = CategoricalDQN(shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
+        # target_model = CategoricalDQN(shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
+        current_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
+        target_model = CategoricalDQN(env.observation_space.shape[0], env.action_space.n, num_atoms, Vmin, Vmax)
 
         if USE_CUDA:
             print('hi')
@@ -296,7 +311,7 @@ if __name__ == '__main__':
         rewards, _, output = train(current_model, target_model)
         # print(len(losses))
         # if np.mean(rewards[-10:]) > 30:
-        data[t] = rewards
+        data[t] = output
 
     plt.figure(figsize=(16, 8))
     # plt.subplot(121)

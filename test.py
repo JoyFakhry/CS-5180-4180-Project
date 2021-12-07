@@ -121,11 +121,11 @@ def train(model):
     step = 1
     for i in tqdm(range(EPISODES)):
 
-        if env_id == 'FourRooms-v0':
-            env.reset()
-            state = env.render()
-        else:
-            state = env.reset()
+        # if env_id == 'FourRooms-v0':
+        #     env.reset()
+        #     state = env.render()
+        # else:
+        state = env.reset()
         episode_reward = 0
         num_steps = 0
         while True:
@@ -153,16 +153,17 @@ def train(model):
 
     return all_rewards, losses, output
 
+
 """ENV SET UP (start)"""
 # Cart Pole Environment
-from env import *
-register_env()
-env_id = "FourRooms-v0"
-# env_id = "CartPole-v0"
-env = gym.make(env_id)
-env.reset()
-print(env.render())
-print(env.observation_space.shape)
+# from env import *
+# register_env()
+# env_id = "FourRooms-v0"
+# # env_id = "CartPole-v0"
+# env = gym.make(env_id)
+# env.reset()
+#
+# print(env.observation_space.shape)
 
 
 # Epsilon greedy exploration
@@ -179,73 +180,23 @@ gamma = 0.99
 
 if __name__ == '__main__':
     TRIALS = 20
-    EPISODES = 200
+    EPISODES = 100
 
-    data = np.zeros((TRIALS, EPISODES))
-    # rewards = np.zeros((TRIALS, EPISODES))
-    step = np.zeros((TRIALS, EPISODES))
-    for t in range(TRIALS):
-        # TODO change here to switch between env
-        shape = env.render().flatten().shape
-
-        model = DQN(shape[0], env.action_space.n)
-        # model = DQN(env.observation_space.shape[0], env.action_space.n)
-        optimizer = optim.Adam(model.parameters())
-        replay_buffer = ReplayBuffer(1000)
-        rewards, _, output = train(model)
-        data[t] = output
-        # rewards = np.array(rewards)
-    plt.figure(figsize=(16, 8))
-    # plt.subplot(121)
-    # # plt.title('frame %s. reward: %s' % (frame_idx, np.mean(rewards[-10:])))
-    # std = step.std(axis=0)
-    # avg = step.mean(axis=0)
-    # length = len(std)
-    # y_err = 1.96 * std * np.sqrt(1 / length)
-    # plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
-    #
-    # plt.plot(step.mean(axis=0))
-    # # plt.xlabel('Episode')
-    # # plt.xlabel('Reward')
-    # plt.subplot(122)
-    # plt.title('loss')
-    # plt.plot(losses)
-    # plt.xlabel('Episode')
-    # plt.xlabel('Loss')
-    # plt.show()
-
-    avg = data.mean(axis=0)
-    std = data.std(axis=0)
-    length = len(avg)
-    y_err = 1.96 * std * np.sqrt(1 / length)
-    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
-
-    plt.plot(avg, label='DQN')
-    plt.xlabel("Episodes")
-    plt.ylabel("Number of steps per episode")
-    plt.legend() #loc=3, fontsize='small')
-    plt.title(f'{env_id} performance over {TRIALS} runs')
-    plt.savefig(f'Pics/{env_id} performance over {TRIALS} runs.png')
-
-    plt.show()
-
-    # env_id = "CartPole-v0"
-    # env = gym.make(env_id)
-    #
     # data = np.zeros((TRIALS, EPISODES))
+    # # rewards = np.zeros((TRIALS, EPISODES))
     # step = np.zeros((TRIALS, EPISODES))
     # for t in range(TRIALS):
     #     # TODO change here to switch between env
-    #     # shape = env.render().flatten().shape
+    #     shape = env.render().flatten().shape
     #
-    #     # model = DQN(shape[0], env.action_space.n)
-    #     model = DQN(env.observation_space.shape[0], env.action_space.n)
+    #     model = DQN(shape[0], env.action_space.n)
+    #     # model = DQN(env.observation_space.shape[0], env.action_space.n)
     #     optimizer = optim.Adam(model.parameters())
-    #     replay_buffer = ReplayBuffer(1000)
+    #     replay_buffer = ReplayBuffer(10000)
     #     rewards, _, output = train(model)
     #     data[t] = output
-    #
     # plt.figure(figsize=(16, 8))
+    #
     # avg = data.mean(axis=0)
     # std = data.std(axis=0)
     # length = len(avg)
@@ -255,9 +206,57 @@ if __name__ == '__main__':
     # plt.plot(avg, label='DQN')
     # plt.xlabel("Episodes")
     # plt.ylabel("Number of steps per episode")
-    # plt.legend()  # loc=3, fontsize='small')
+    # plt.legend() #loc=3, fontsize='small')
     # plt.title(f'{env_id} performance over {TRIALS} runs')
     # plt.savefig(f'Pics/{env_id} performance over {TRIALS} runs.png')
     #
     # plt.show()
+
+    from typing import TypeVar
+    import random
+
+    Action = TypeVar('Action')
+
+    class RandomActionWrapper(gym.ActionWrapper):
+        def __init__(self, env, epsilon=0.1):
+            super(RandomActionWrapper, self).__init__(env)
+            self.epsilon = epsilon
+
+        def action(self, action):
+            if random.random() < self.epsilon:
+                # print("Random!")
+                return self.env.action_space.sample()
+            return action
+
+    env_id = "CartPole-v0"
+    env = RandomActionWrapper(gym.make(env_id))
+
+    data = np.zeros((TRIALS, EPISODES))
+    step = np.zeros((TRIALS, EPISODES))
+    for t in range(TRIALS):
+        # TODO change here to switch between env
+        # shape = env.render().flatten().shape
+
+        # model = DQN(shape[0], env.action_space.n)
+        model = DQN(env.observation_space.shape[0], env.action_space.n)
+        optimizer = optim.Adam(model.parameters())
+        replay_buffer = ReplayBuffer(1000)
+        rewards, _, output = train(model)
+        data[t] = output
+
+    plt.figure(figsize=(16, 8))
+    avg = data.mean(axis=0)
+    std = data.std(axis=0)
+    length = len(avg)
+    y_err = 1.96 * std * np.sqrt(1 / length)
+    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
+
+    plt.plot(avg, label='DQN')
+    plt.xlabel("Episodes")
+    plt.ylabel("Number of steps per episode")
+    plt.legend()  # loc=3, fontsize='small')
+    plt.title(f'{env_id} performance over {TRIALS} runs (Stochastic Actions)')
+    plt.savefig(f'Pics/{env_id} performance over {TRIALS} runs (Stochastic Actions.png')
+
+    plt.show()
 
