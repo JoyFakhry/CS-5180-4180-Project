@@ -39,9 +39,7 @@ class RandomActionWrapper(gym.ActionWrapper):
             return self.env.action_space.sample()
         return action
 
-env_id = "CartPole-v1"
-env = RandomActionWrapper(gym.make(env_id))
-#
+
 # # Epsilon greedy exploration
 # epsilon_start = 1.0
 # epsilon_final = 0.01
@@ -198,8 +196,8 @@ def update_target(current_model, target_model):
 def compute_td_loss(batch_size):
     state, action, reward, next_state, done = replay_buffer.sample(batch_size)
 
-    state = Variable(torch.FloatTensor(np.float32(state)))
     with torch.no_grad():
+        state = Variable(torch.FloatTensor(np.float32(state)))
         next_state = Variable(torch.FloatTensor(np.float32(next_state)))
     action = Variable(torch.LongTensor(action))
     reward = torch.FloatTensor(reward)
@@ -286,7 +284,12 @@ def train(current_model, target_model):
 
 if __name__ == '__main__':
     TRIALS = 5
-    EPISODES = 150
+    EPISODES = 500
+
+    env_id = "CartPole-v0"
+    env = RandomActionWrapper(gym.make(env_id))
+    # env = gym.make(env_id)
+    #
 
     data = np.zeros((TRIALS, EPISODES))
     # rewards = np.zeros((TRIALS, EPISODES))

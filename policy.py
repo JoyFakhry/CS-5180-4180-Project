@@ -42,3 +42,14 @@ def create_epsilon_policy(Q: defaultdict, epsilon: float) -> Callable:
 
     return get_action
 
+
+# Midterm, Final, HWs, Project, Attendance
+weights = [0.17, 0.3, 0.08, 0.4, 0.05]
+grades = [0.9, 0.8, (100+100+95+100+90)/500, 0.8, .8]
+
+weights = np.array(weights)
+grades = np.array(grades)
+
+grade = weights*grades
+print(grade)
+print(np.sum(grade))

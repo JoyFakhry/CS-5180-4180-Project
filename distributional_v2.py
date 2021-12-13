@@ -202,14 +202,15 @@ def rolling_average(data, *, window_size=10):
 
 
 def main():
-    TRIALS = 1
-    EPISODES = 100
+    TRIALS = 10
+    EPISODES = 150
 
     env_id = "CartPole-v0"
     env = gym.make(env_id)
-
+    print(f'Running {env_id}')
     data = np.zeros((TRIALS, EPISODES))
     for t in range(TRIALS):
+        print(f'{env_id} trial {t}')
         agent = Agent(env, EPISODES, 'env_id')
         data[t] = agent.train(EPISODES)
 
@@ -244,9 +245,10 @@ def main():
 
     env_id = "CartPole-v0"
     env = RandomActionWrapper(gym.make(env_id))
-
+    print(f'Running {env_id}')
     data = np.zeros((TRIALS, EPISODES))
     for t in range(TRIALS):
+        print(f'{env_id} trial {t}')
         agent = Agent(env, EPISODES, 'env_id')
         data[t] = agent.train(EPISODES)
 
@@ -259,7 +261,7 @@ def main():
     plt.plot(avg, label='Stochastic env')
     # plt.plot(rolling_average(avg))
     plt.legend()  # loc=3, fontsize='small')
-    plt.savefig(f'Pics/Distributional RL on Original and Stochastic Environments {TRIALS} runs.png')
+    plt.savefig(f'Pics/Distributional RL on Original and Stochastic Environments {TRIALS} runs {EPISODES} episodes.png')
 
     plt.show()
 
