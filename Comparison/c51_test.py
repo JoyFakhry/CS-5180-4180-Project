@@ -1,10 +1,13 @@
 # import wandb
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Reshape, Softmax
+import tensorflow_probability as tfp
 from tensorflow.keras.optimizers import Adam
-from env import *
-from tqdm import trange
+import matplotlib.pyplot as plt
 
+plt.style.use("ggplot")
+import json
+import numpy as np
 
 import gym
 import argparse
@@ -12,23 +15,23 @@ import numpy as np
 from collections import deque
 import random
 import math
-import matplotlib.pyplot as plt
+from tqdm import trange
 
-# tf.keras.backend.set_floatx('float32')
+tf.keras.backend.set_floatx('float64')
 # wandb.init(name='C51', project="dist-rl-tf2")
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gamma', type=float, default=0.99)
 parser.add_argument('--lr', type=float, default=0.0001)
-parser.add_argument('--batch_size', type=int, default=32)
-parser.add_argument('--atoms', type=int, default=32)
+parser.add_argument('--batch_size', type=int, default=8)
+parser.add_argument('--atoms', type=int, default=8)
 parser.add_argument('--v_min', type=float, default=-5.)
 parser.add_argument('--v_max', type=float, default=5.)
 
 args = parser.parse_args()
 
 
-class Dist_ReplayBuffer:
+class ReplayBuffer:
     def __init__(self, capacity=10000):
         self.buffer = deque(maxlen=capacity)
 
@@ -54,7 +57,7 @@ class ActionValueModel:
         self.atoms = args.atoms
         self.z = z
 
-        self.opt = Adam(args.lr)
+        self.opt = tf.keras.optimizers.Adam(args.lr)
         self.criterion = tf.keras.losses.CategoricalCrossentropy()
         self.model = self.create_model()
 
@@ -94,17 +97,11 @@ class ActionValueModel:
 
 
 class Agent:
-    def __init__(self, env, episodes, id):
+    def __init__(self, env):
         self.env = env
-        self.id = id
-        if self.id == 'FourRooms-v0':
-            env.reset()
-            shape = env.render().flatten().shape
-            self.state_dim = shape[0]
-        else:
-            self.state_dim = env.observation_space.shape[0]
+        self.state_dim = env.observation_space.shape[0]
         self.action_dim = env.action_space.n
-        self.buffer = Dist_ReplayBuffer()
+        self.buffer = ReplayBuffer()
         self.batch_size = args.batch_size
         self.v_max = args.v_max
         self.v_min = args.v_min
@@ -116,7 +113,6 @@ class Agent:
         self.q_target = ActionValueModel(
             self.state_dim, self.action_dim, self.z)
         self.target_update()
-        self.episodes = episodes
 
     def target_update(self):
         weights = self.q.model.get_weights()
@@ -151,23 +147,17 @@ class Agent:
                         u)] += z_[next_actions[i]][i][j] * (bj - l)
         self.q.train(states, m_prob)
 
-    def train(self, max_epsiodes=500):
-        output = []
+    def train(self, rewards_recorder, trial, exp, max_epsiodes=500):
+        rewards_vec = []
+        steps_vec = []
         for ep in range(max_epsiodes):
-            if self.id == 'FourRooms-v0':
-                self.env.reset()
-                state = self.env.render()
-            else:
-                state = self.env.reset()
             done, total_reward, steps = False, 0, 0
-
-            num_steps = 0
+            state = self.env.reset()
             while not done:
-                num_steps += 1
                 action = self.q.get_action(state, ep)
                 next_state, reward, done, _ = self.env.step(action)
                 self.buffer.put(state, action, -
-                                1 if done else 0, next_state, done)
+                1 if done else 0, next_state, done)
 
                 if self.buffer.size() > 1000:
                     self.replay()
@@ -177,95 +167,71 @@ class Agent:
                 state = next_state
                 total_reward += reward
                 steps += 1
-                if done:
-                    output.append(num_steps)
             # wandb.log({'reward': total_reward})
-            if ep % 2 == 0:
-                print('EP{} reward={}'.format(ep, total_reward))
-        return output
+            steps_vec.append(steps)
+            rewards_vec.append(total_reward)
+
+            # print('EP{} reward={}'.format(ep, total_reward))
+        rewards_recorder[trial,] = rewards_vec
+        save_ndarray(trial, max_epsiodes, f'{exp}_rewards', rewards_recorder)
+        return rewards_vec, steps_vec
 
 
-def rolling_average(data, *, window_size=10):
-    """Smoothen the 1-d data array using a rollin average.
+def save_ndarray(trial, episode, name, ndarray):
+    with open(f'savedData/t{trial}_eps{episode}_{name}.json', 'w') as f:
+        json.dump(ndarray.tolist(), f)
 
-    Args:
-        data: 1-d numpy.array
-        window_size: size of the smoothing window
 
-    Returns:
-        smooth_data: a 1-d numpy.array with the same size as data
-    """
-    assert data.ndim == 1
-    kernel = np.ones(window_size)
-    smooth_data = np.convolve(data, kernel) / np.convolve(
-        np.ones_like(data), kernel
-    )
-    return smooth_data[: -window_size + 1]
+class RandomActionWrapper(gym.ActionWrapper):
+    def __init__(self, env, epsilon=0.1):
+        super(RandomActionWrapper, self).__init__(env)
+        self.epsilon = epsilon
+
+    def action(self, action):
+        if random.random() < self.epsilon:
+            return self.env.action_space.sample()
+        return action
+
+    def reverse_action(self, action):
+        pass
 
 
 def main():
-    TRIALS = 10
-    EPISODES = 150
+    env = gym.make('CartPole-v0')
+    sEnv = RandomActionWrapper(gym.make('CartPole-v0'))
 
-    env_id = "CartPole-v0"
-    env = gym.make(env_id)
-    print(f'Running {env_id}')
-    data = np.zeros((TRIALS, EPISODES))
-    for t in range(TRIALS):
-        print(f'{env_id} trial {t}')
-        agent = Agent(env, EPISODES, 'env_id')
-        data[t] = agent.train(EPISODES)
 
-    plt.figure(figsize=(16, 8))
-    avg = data.mean(axis=0)
-    std = data.std(axis=0)
-    length = len(avg)
-    y_err = 1.96 * std * np.sqrt(1 / length)
-    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
+    n_eps = 200
+    n_trials = 100
+    rewards_mat = np.zeros((n_trials, n_eps))
+    # steps_mat = np.zeros((n_trials, n_eps))
+    s_rewards_mat = np.zeros((n_trials, n_eps))
+    # s_steps_mat = np.zeros((n_trials, n_eps))
 
-    plt.plot(avg, label='Original env')
-    # plt.plot(rolling_average(avg))
-    plt.xlabel("Episodes")
-    plt.ylabel("Number of steps per episode")
-    plt.title(f'Distributional RL on Original and Stochastic Environments')
-
-    from typing import TypeVar
-    import random
-
-    Action = TypeVar('Action')
-
-    class RandomActionWrapper(gym.ActionWrapper):
-        def __init__(self, env, epsilon=0.1):
-            super(RandomActionWrapper, self).__init__(env)
-            self.epsilon = epsilon
-
-        def action(self, action):
-            if random.random() < self.epsilon:
-                # print("Random!")
-                return self.env.action_space.sample()
-            return action
-
-    env_id = "CartPole-v0"
-    env = RandomActionWrapper(gym.make(env_id))
-    print(f'Running {env_id}')
-    data = np.zeros((TRIALS, EPISODES))
-    for t in range(TRIALS):
-        print(f'{env_id} trial {t}')
-        agent = Agent(env, EPISODES, 'env_id')
-        data[t] = agent.train(EPISODES)
-
-    avg = data.mean(axis=0)
-    std = data.std(axis=0)
-    length = len(avg)
-    y_err = 1.96 * std * np.sqrt(1 / length)
-    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2)
-
-    plt.plot(avg, label='Stochastic env')
-    # plt.plot(rolling_average(avg))
-    plt.legend()  # loc=3, fontsize='small')
-    plt.savefig(f'Pics/Distributional RL on Original and Stochastic Environments {TRIALS} runs {EPISODES} episodes.png')
-
-    plt.show()
+    for t in trange(n_trials):
+        agent = Agent(env)
+        sAgent = Agent(sEnv)
+        rewards, steps = agent.train(rewards_recorder=rewards_mat, trial=t, exp="det",
+                                     max_epsiodes=n_eps)
+        s_rewards, s_steps = sAgent.train(rewards_recorder=s_rewards_mat, trial=t,
+                                          exp="sto", max_epsiodes=n_eps)
+    # plt.figure()
+    # ax = plt.axes()
+    # ax.plot([i for i in range(len(rewards_vec))], rewards_vec)
+    # ax.set_title("rewards")
+    # plt.figure()
+    # ax2 = plt.axes()
+    # ax2.plot([i for i in range(len(steps_vec))], steps_vec)
+    # ax2.set_title("steps")
+    # plt.figure()
+    # ax3 = plt.axes()
+    # ax3.plot([i for i in range(len(s_rewards_vec))], s_rewards_vec)
+    # ax3.set_title("rewards (stochastic)")
+    # plt.figure()
+    # ax4 = plt.axes()
+    # ax4.plot([i for i in range(len(s_steps_vec))], s_steps_vec)
+    # ax4.set_title("steps (stochastic)")
+    # plt.show()
 
 
 if __name__ == "__main__":

@@ -153,17 +153,16 @@ def train(model, EPISODES, env, replay_buffer, optimizer):
 
     return all_rewards, losses, output
 
-
 """ENV SET UP (start)"""
 # Cart Pole Environment
-# from env import *
-# register_env()
-# env_id = "FourRooms-v0"
-# # env_id = "CartPole-v0"
-# env = gym.make(env_id)
-# env.reset()
-#
-# print(env.observation_space.shape)
+from env import *
+register_env()
+env_id = "FourRooms-v0"
+# env_id = "CartPole-v0"
+env = gym.make(env_id)
+env.reset()
+print(env.render())
+print(env.observation_space.shape)
 
 
 # Epsilon greedy exploration
