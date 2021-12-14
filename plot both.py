@@ -6,8 +6,8 @@ import gym
 from tqdm import tqdm
 import random
 
-TRIALS = 3
-EPISODES = 200
+TRIALS = 2
+EPISODES = 100
 
 
 class RandomActionWrapper(gym.ActionWrapper):
@@ -70,5 +70,5 @@ plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, a
 plt.plot(avg, label='Distributional RL', color='cornflowerblue')
 plt.plot(rolling_average(avg), color='royalblue', alpha=0.5)
 plt.legend()
-plt.savefig(f'Pics/Compare both on stochastic env {TRIALS} trials 32 bins.png')
+plt.savefig(f'Pics/Compare both on stochastic env {TRIALS} trials 2 bins.png')
 plt.show()

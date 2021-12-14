@@ -21,7 +21,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--gamma', type=float, default=0.99)
 parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--batch_size', type=int, default=32)
-parser.add_argument('--atoms', type=int, default=32)
+#atoms = [2, 4, 8, 16, 32, 64]
+parser.add_argument('--atoms', type=int, default=2)
 parser.add_argument('--v_min', type=float, default=-5.)
 parser.add_argument('--v_max', type=float, default=5.)
 
@@ -48,10 +49,10 @@ class Dist_ReplayBuffer:
 
 
 class ActionValueModel:
-    def __init__(self, state_dim, action_dim, z):
+    def __init__(self, state_dim, action_dim, z, atoms):
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.atoms = args.atoms
+        self.atoms = atoms
         self.z = z
 
         self.opt = Adam(args.lr)
@@ -94,7 +95,7 @@ class ActionValueModel:
 
 
 class Agent:
-    def __init__(self, env, episodes, id):
+    def __init__(self, env, episodes, id, atoms):
         self.env = env
         self.id = id
         if self.id == 'FourRooms-v0':
@@ -108,13 +109,13 @@ class Agent:
         self.batch_size = args.batch_size
         self.v_max = args.v_max
         self.v_min = args.v_min
-        self.atoms = args.atoms
+        self.atoms = atoms
         self.delta_z = float(self.v_max - self.v_min) / (self.atoms - 1)
         self.z = [self.v_min + i * self.delta_z for i in range(self.atoms)]
         self.gamma = args.gamma
-        self.q = ActionValueModel(self.state_dim, self.action_dim, self.z)
+        self.q = ActionValueModel(self.state_dim, self.action_dim, self.z, atoms)
         self.q_target = ActionValueModel(
-            self.state_dim, self.action_dim, self.z)
+            self.state_dim, self.action_dim, self.z, atoms)
         self.target_update()
         self.episodes = episodes
 
@@ -268,5 +269,32 @@ def main():
     plt.show()
 
 
+def vary_atoms():
+    TRIALS = 3
+    EPISODES = 20
+
+    env_id = "CartPole-v0"
+    env = gym.make(env_id)
+    print(f'Running {env_id}')
+    data = np.zeros((TRIALS, EPISODES))
+    atoms = [2, 4, 8, 16, 32, 64]
+    output = np.zeros((len(atoms), EPISODES))
+    for index, atom in enumerate(atoms):
+        for t in range(TRIALS):
+            print(f'{env_id} trial {t}')
+            agent = Agent(env, EPISODES, 'env_id', atom)
+            data[t] = agent.train(EPISODES)
+        avg = data.mean(axis=0)
+        output[index] = rolling_average(avg)
+    # np.save(f'Data/2 bins {TRIALS} trials {EPISODES} episodes', output)
+    for index, atom in enumerate(atoms):
+        plt.plot(output[index], label=f'{atom} atoms')
+    plt.legend()  # loc=3, fontsize='small')
+    plt.savefig(f'Pics/Varying atoms {TRIALS} trials.png')
+
+    plt.show()
+
+
 if __name__ == "__main__":
-    main()
+    # main()
+    vary_atoms()
