@@ -20,14 +20,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--gamma', type=float, default=0.99)
 parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--batch_size', type=int, default=32)
-parser.add_argument('--atoms', type=int, default=8)
+parser.add_argument('--atoms', type=int, default=32)
 parser.add_argument('--v_min', type=float, default=-5.)
 parser.add_argument('--v_max', type=float, default=5.)
 
 args = parser.parse_args()
 
 
-class ReplayBuffer:
+class Dist_ReplayBuffer:
     def __init__(self, capacity=10000):
         self.buffer = deque(maxlen=capacity)
 
@@ -103,7 +103,7 @@ class Agent:
         else:
             self.state_dim = env.observation_space.shape[0]
         self.action_dim = env.action_space.n
-        self.buffer = ReplayBuffer()
+        self.buffer = Dist_ReplayBuffer()
         self.batch_size = args.batch_size
         self.v_max = args.v_max
         self.v_min = args.v_min
@@ -179,7 +179,8 @@ class Agent:
                 if done:
                     output.append(num_steps)
             # wandb.log({'reward': total_reward})
-            print('EP{} reward={}'.format(ep, total_reward))
+            if ep % 2 == 0:
+                print('EP{} reward={}'.format(ep, total_reward))
         return output
 
 

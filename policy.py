@@ -53,3 +53,8 @@ grades = np.array(grades)
 grade = weights*grades
 print(grade)
 print(np.sum(grade))
+
+import gym
+env_id = "CartPole-v0"
+env = gym.make(env_id)
+print(env.action_space.sample())

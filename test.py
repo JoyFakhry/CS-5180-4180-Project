@@ -19,7 +19,7 @@ Variable = lambda *args, **kwargs: autograd.Variable(*args, **kwargs).cuda() if 
 # Replay Buffer
 from collections import deque
 
-class ReplayBuffer(object):
+class DQN_ReplayBuffer(object):
     def __init__(self, capacity):
         self.buffer = deque(maxlen=capacity)
 
@@ -54,7 +54,7 @@ class DQN(nn.Module):
     def forward(self, x):
         return self.layers(x)
 
-    def act(self, state, epsilon):
+    def act(self, state, epsilon, env):
         if rand.random() > epsilon:
             with torch.no_grad():
                 state = Variable(torch.FloatTensor(state).unsqueeze(0))
@@ -70,7 +70,7 @@ class DQN(nn.Module):
 # replay_buffer = ReplayBuffer(1000)
 
 # TD Loss
-def compute_td_loss(batch_size):
+def compute_td_loss(batch_size, replay_buffer, model, optimizer):
     state, action, reward, next_state, done = replay_buffer.sample(batch_size)
 
     state = Variable(torch.FloatTensor(np.float32(state)))
@@ -112,7 +112,7 @@ def compute_td_loss(batch_size):
 #     plt.show()
 
 
-def train(model):
+def train(model, EPISODES, env, replay_buffer, optimizer):
     losses = []
     # all_rewards = []
     all_rewards = np.zeros(EPISODES)
@@ -131,7 +131,7 @@ def train(model):
         while True:
             num_steps += 1
             epsilon = epsilon_by_frame(step)
-            action = model.act(state, epsilon)
+            action = model.act(state, epsilon, env)
             # print(state)
             next_state, reward, done, _ = env.step(action)
             replay_buffer.push(state, action, reward, next_state, done)
@@ -147,7 +147,7 @@ def train(model):
                 break
 
             if len(replay_buffer) > batch_size:
-                loss = compute_td_loss(batch_size)
+                loss = compute_td_loss(batch_size, replay_buffer, model, optimizer)
                 losses.append(loss.item())
             step += 1
 
@@ -208,8 +208,8 @@ if __name__ == '__main__':
     for t in range(TRIALS):
         model = DQN(env.observation_space.shape[0], env.action_space.n)
         optimizer = optim.Adam(model.parameters())
-        replay_buffer = ReplayBuffer(1000)
-        rewards, _, output = train(model)
+        replay_buffer = DQN_ReplayBuffer(1000)
+        rewards, _, output = train(model, EPISODES, env, replay_buffer, optimizer)
         data[t] = output
 
     plt.figure(figsize=(16, 8))
@@ -248,8 +248,8 @@ if __name__ == '__main__':
     for t in range(TRIALS):
         model = DQN(env.observation_space.shape[0], env.action_space.n)
         optimizer = optim.Adam(model.parameters())
-        replay_buffer = ReplayBuffer(1000)
-        rewards, _, output = train(model)
+        replay_buffer = DQN_ReplayBuffer(1000)
+        rewards, _, output = train(model, EPISODES, env)
         data[t] = output
 
     avg = data.mean(axis=0)
