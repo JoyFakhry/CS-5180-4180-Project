@@ -68,10 +68,12 @@ class ActionValueModel:
             outputs.append(Dense(self.atoms, activation='softmax')(h2))
         return tf.keras.Model(input_state, outputs)
 
-    def train(self, x, y):
+    def train(self, x, y, ep):
         y = tf.stop_gradient(y)
         with tf.GradientTape() as tape:
             logits = self.model(x)
+            # if ep % 10 == 0:
+            #     print(logits)
             loss = self.criterion(y, logits)
         grads = tape.gradient(loss, self.model.trainable_variables)
         self.opt.apply_gradients(zip(grads, self.model.trainable_variables))
@@ -123,7 +125,7 @@ class Agent:
         weights = self.q.model.get_weights()
         self.q_target.model.set_weights(weights)
 
-    def replay(self):
+    def replay(self, ep):
         states, actions, rewards, next_states, dones = self.buffer.sample()
         z = self.q.predict(next_states)
         z_ = self.q_target.predict(next_states)
@@ -150,7 +152,7 @@ class Agent:
                         l)] += z_[next_actions[i]][i][j] * (u - bj)
                     m_prob[actions[i]][i][int(
                         u)] += z_[next_actions[i]][i][j] * (bj - l)
-        self.q.train(states, m_prob)
+        self.q.train(states, m_prob, ep)
 
     def train(self, max_epsiodes=500):
         output = []
@@ -171,7 +173,7 @@ class Agent:
                                 1 if done else 0, next_state, done)
 
                 if self.buffer.size() > 1000:
-                    self.replay()
+                    self.replay(ep)
                 if steps % 5 == 0:
                     self.target_update()
 
@@ -270,29 +272,44 @@ def main():
 
 
 def vary_atoms():
-    TRIALS = 3
-    EPISODES = 20
+    TRIALS = 1
+    EPISODES = 200
 
     env_id = "CartPole-v0"
-    env = gym.make(env_id)
-    print(f'Running {env_id}')
-    data = np.zeros((TRIALS, EPISODES))
-    atoms = [2, 4, 8, 16, 32, 64]
-    output = np.zeros((len(atoms), EPISODES))
-    for index, atom in enumerate(atoms):
-        for t in range(TRIALS):
-            print(f'{env_id} trial {t}')
-            agent = Agent(env, EPISODES, 'env_id', atom)
-            data[t] = agent.train(EPISODES)
-        avg = data.mean(axis=0)
-        output[index] = rolling_average(avg)
-    # np.save(f'Data/2 bins {TRIALS} trials {EPISODES} episodes', output)
-    for index, atom in enumerate(atoms):
-        plt.plot(output[index], label=f'{atom} atoms')
-    plt.legend()  # loc=3, fontsize='small')
-    plt.savefig(f'Pics/Varying atoms {TRIALS} trials.png')
 
-    plt.show()
+    class RandomActionWrapper(gym.ActionWrapper):
+        def __init__(self, env, epsilon=0.1):
+            super(RandomActionWrapper, self).__init__(env)
+            self.epsilon = epsilon
+
+        def action(self, action):
+            if random.random() < self.epsilon:
+                # print("Random!")
+                if action == 0:
+                    return 1
+                if action == 1:
+                    return 0
+                # return self.env.action_space.sample()
+            return action
+
+    env = RandomActionWrapper(gym.make(env_id))
+    print(f'Running {env_id}')
+    # data = np.zeros((TRIALS, EPISODES))
+    atoms = [2, 4, 8, 16, 32, 64]
+    output = np.zeros((len(atoms), TRIALS, EPISODES))
+    for index, atom in enumerate(atoms):
+        # for t in range(TRIALS):
+        print(f'Running atom {atom}')
+        agent = Agent(env, EPISODES, 'env_id', atom)
+        # data[t] = agent.train(EPISODES)
+        output[index] = agent.train(EPISODES)
+        np.save(f'Data/Atoms/{atom} atoms trial 5 {EPISODES} episodes', output)
+    # for index, atom in enumerate(atoms):
+    #     plt.plot(output[index], label=f'{atom} atoms')
+    # plt.legend()  # loc=3, fontsize='small')
+    # plt.savefig(f'Pics/Varying atoms {TRIALS} trials.png')
+
+    # plt.show()
 
 
 if __name__ == "__main__":

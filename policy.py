@@ -1,6 +1,7 @@
 import numpy as np
 from collections import defaultdict
 from typing import Callable, Tuple, Sequence
+import matplotlib.pyplot as plt
 
 def argmax(arr: Sequence[float]) -> int:
     """Argmax that breaks ties randomly
@@ -54,7 +55,8 @@ grade = weights*grades
 print(grade)
 print(np.sum(grade))
 
-import gym
-env_id = "CartPole-v0"
-env = gym.make(env_id)
-print(env.action_space.sample())
+bins_64 = np.load('Data/Epsilon/0.5 epsilon 1 trials 20 episodes.npy')
+for i in bins_64:
+    avg = i.mean(axis=0)
+    plt.plot(avg)
+plt.show()

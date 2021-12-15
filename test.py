@@ -161,8 +161,8 @@ env_id = "FourRooms-v0"
 # env_id = "CartPole-v0"
 env = gym.make(env_id)
 env.reset()
-print(env.render())
-print(env.observation_space.shape)
+# print(env.render())
+# print(env.observation_space.shape)
 
 
 # Epsilon greedy exploration
@@ -197,32 +197,32 @@ def rolling_average(data, *, window_size=10):
 
 
 if __name__ == '__main__':
-    TRIALS = 20
-    EPISODES = 150
+    TRIALS = 5
+    EPISODES = 200
 
-    env_id = "CartPole-v0"
-    env = gym.make(env_id)
+    # env_id = "CartPole-v0"
+    # env = gym.make(env_id)
 
-    data = np.zeros((TRIALS, EPISODES))
-    for t in range(TRIALS):
-        model = DQN(env.observation_space.shape[0], env.action_space.n)
-        optimizer = optim.Adam(model.parameters())
-        replay_buffer = DQN_ReplayBuffer(1000)
-        rewards, _, output = train(model, EPISODES, env, replay_buffer, optimizer)
-        data[t] = output
-
-    plt.figure(figsize=(16, 8))
-    avg = data.mean(axis=0)
-    std = data.std(axis=0)
-    length = len(avg)
-    y_err = 1.96 * std * np.sqrt(1 / length)
-    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2, c='royal blue')
-
-    plt.plot(avg, label='Original env', c='royal blue')
-    plt.plot(rolling_average(avg), c='dark blue')
-    plt.xlabel("Episodes")
-    plt.ylabel("Number of steps per episode")
-    plt.title(f'DQN on Original and Stochastic Environments')
+    # data = np.zeros((TRIALS, EPISODES))
+    # for t in range(TRIALS):
+    #     model = DQN(env.observation_space.shape[0], env.action_space.n)
+    #     optimizer = optim.Adam(model.parameters())
+    #     replay_buffer = DQN_ReplayBuffer(1000)
+    #     rewards, _, output = train(model, EPISODES, env, replay_buffer, optimizer)
+    #     data[t] = output
+    #
+    # plt.figure(figsize=(16, 8))
+    # avg = data.mean(axis=0)
+    # std = data.std(axis=0)
+    # length = len(avg)
+    # y_err = 1.96 * std * np.sqrt(1 / length)
+    # plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2, c='royal blue')
+    #
+    # plt.plot(avg, label='Original env', c='royal blue')
+    # plt.plot(rolling_average(avg), c='dark blue')
+    # plt.xlabel("Episodes")
+    # plt.ylabel("Number of steps per episode")
+    # plt.title(f'DQN on Original and Stochastic Environments')
 
     from typing import TypeVar
     import random
@@ -241,26 +241,40 @@ if __name__ == '__main__':
             return action
 
     env_id = "CartPole-v0"
-    env = RandomActionWrapper(gym.make(env_id))
+    eps = [0, 0.1, 0.2, 0.3, 0.4, 0.5]
+    EPSILON = 0
+    # env = RandomActionWrapper(gym.make(env_id), epsilon=EPSILON)
 
-    data = np.zeros((TRIALS, EPISODES))
+    i = 0
+    data = np.zeros((len(eps), TRIALS, EPISODES))
     for t in range(TRIALS):
-        model = DQN(env.observation_space.shape[0], env.action_space.n)
-        optimizer = optim.Adam(model.parameters())
-        replay_buffer = DQN_ReplayBuffer(1000)
-        rewards, _, output = train(model, EPISODES, env)
-        data[t] = output
+        for index, ep in enumerate(eps):
+            env = RandomActionWrapper(gym.make(env_id), epsilon=ep)
+            model = DQN(env.observation_space.shape[0], env.action_space.n)
+            optimizer = optim.Adam(model.parameters())
+            replay_buffer = DQN_ReplayBuffer(1000)
+            rewards, _, output = train(model, EPISODES, env, replay_buffer, optimizer)
+            data[index, t] = output
+            i += 1
+            print(i)
 
-    avg = data.mean(axis=0)
-    std = data.std(axis=0)
-    length = len(avg)
-    y_err = 1.96 * std * np.sqrt(1 / length)
-    plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2, c='sea green')
+    print(data.shape)
+    colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown']
+    for index, ep in enumerate(eps):
+        avg = data[index].mean(axis=0)
+        std = data[index].std(axis=0)
+        length = len(avg)
+        y_err = 1.96 * std * np.sqrt(1 / length)
+        plt.fill_between(np.linspace(0, length - 1, length), avg - y_err, avg + y_err, alpha=0.2, color=colors[index])
 
-    plt.plot(avg, label='Stochastic env', c='sea green')
-    plt.plot(rolling_average(avg), c='dark green')
-    plt.legend()  # loc=3, fontsize='small')
-    plt.savefig(f'Pics/DQN on Original and Stochastic Environments {TRIALS} runs.png')
+    # plt.plot(avg, label='Stochastic env', c='sea green')
+    # plt.plot(rolling_average(avg), c='dark green')
+    # plt.legend()  # loc=3, fontsize='small')
+    # plt.savefig(f'Pics/varying epsilon on DQN.png')
+        plt.plot(avg, label=f'e={ep}', color=colors[index])
+        plt.plot(rolling_average(avg), color=colors[index])
+        plt.legend()  # loc=3, fontsize='small')
+    # plt.savefig(f'Pics/varying epsilon on DQN.png')
 
     plt.show()
 
